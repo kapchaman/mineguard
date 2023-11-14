@@ -1,0 +1,113 @@
+#include "RTClib.h"
+#include <LiquidCrystal.h> 
+#include <SD.h>
+#include "SDS011.h"
+ 
+LiquidCrystal lcd(14, 9, 5, 4, 7, 8);  
+ 
+File myFile;
+ 
+RTC_DS3231 rtc;
+SDS011 my_sds;
+
+int Contrast=80;
+float p10, p25;
+int error;
+int y,z,T;
+
+void setup () {
+    Serial.begin(9600);
+    my_sds.begin(2, 3);
+analogWrite(6,Contrast);
+     lcd.begin(16, 2);
+
+  Serial.print("Initializing SD card...");
+   pinMode(10, OUTPUT);
+ 
+  if (!SD.begin(10)) {
+    Serial.println("SD initialization failed!");
+    return;
+  }
+  Serial.println("SD initialization done.");
+
+
+  delay(3000); // wait for console opening
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+  }
+
+  if (rtc.lostPower()) {
+    Serial.println("RTC lost power, lets set the time!");
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line can be used to set the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
+}
+
+void loop () {
+  error = my_sds.read(&p25, &p10);
+  if (!error) {
+    Serial.println("P2.5:" + String(p25));
+    Serial.println("P10:" + String(p10));
+  }
+    DateTime now = rtc.now();
+lcd.clear();
+     lcd.setCursor(0, 0);  
+     lcd.print(now.hour(), DEC);
+    lcd.print(':');
+    lcd.print(now.minute(), DEC);
+        lcd.print(':');
+    lcd.print(now.second(), DEC);
+    
+    lcd.print(" T=");
+    T=rtc.getTemperature();
+    lcd.print(String(T));
+    lcd.print("C");
+
+y = (int) p25;
+z = (int) p10;
+   
+    lcd.setCursor(0, 1);
+
+     lcd.print("P2.5=" + String(y));
+     lcd.print(" P10=" + String(z));
+
+
+      // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  myFile = SD.open("PMlog.txt", FILE_WRITE);
+ 
+  // if the file opened okay, write to it:
+  if (myFile) {
+    Serial.print("Writing to PMlog.txt...");
+        myFile.print(now.year(), DEC);
+    myFile.print('/');
+    myFile.print(now.month(), DEC);
+    myFile.print('/');
+    myFile.print(now.day(), DEC);
+    myFile.print(";");
+   myFile.print(now.hour(), DEC);
+    myFile.print(':');
+    myFile.print(now.minute(), DEC);
+        myFile.print(':');
+    myFile.print(now.second(), DEC);
+    myFile.print(";");
+    myFile.print("T=");
+    myFile.print(T);
+    myFile.print("C");
+    myFile.print(";");
+     myFile.print("P2.5;" + String(y));
+     myFile.println(";P10;" + String(z));  
+  // close the file:
+    myFile.close();
+    Serial.println("done.");
+  } 
+  else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening text file");
+  }    
+    delay(1000);
+}
